@@ -6,8 +6,13 @@ const { inputIndex, inputSatoshis, tx, signTx, getPreimage, toHex, num2bin, Data
 
 // make a copy since it will be mutated
 let tx_ = bsv.Transaction.shallowCopy(tx)
+
+const Signature = bsv.crypto.Signature
+// Note: ANYONECANPAY
+const sighashType = Signature.SIGHASH_ANYONECANPAY | Signature.SIGHASH_ALL | Signature.SIGHASH_FORKID
 const outputAmount = 22222
-    
+const changeAmount = 111111
+
 describe('Test sCrypt contract UTXO Token In Javascript', () => {
   let token, lockingScriptCodePart
 
@@ -17,6 +22,8 @@ describe('Test sCrypt contract UTXO Token In Javascript', () => {
   const publicKey2 = bsv.PublicKey.fromPrivateKey(privateKey2)
   const privateKey3 = new bsv.PrivateKey.fromRandom('testnet')
   const publicKey3 = bsv.PublicKey.fromPrivateKey(privateKey3)
+
+  const pkh = bsv.crypto.Hash.sha256ripemd160(publicKey1.toBuffer())
   
   before(() => {
     const Token = buildContractClass(path.join(__dirname, '../../contracts/tokenUtxo.scrypt'), tx_, inputIndex, inputSatoshis)
@@ -53,14 +60,20 @@ describe('Test sCrypt contract UTXO Token In Javascript', () => {
         }))
       }
 
+      // change output
+      tx_.addOutput(new bsv.Transaction.Output({
+        script: bsv.Script.buildPublicKeyHashOut(privateKey1.toAddress()),
+        satoshis: changeAmount
+      }))
+
       const Token = buildContractClass(path.join(__dirname, '../../contracts/tokenUtxo.scrypt'), tx_, inputIndex, inputSatoshis)
       token = new Token()
       
       token.setLockingScript(lockingScript)
       
-      const preimage = getPreimage(tx_, lockingScript, inputIndex)
-      const sig = signTx(tx_, privKey, token.getLockingScript())
-      return token.split(toHex(sig), toHex(publicKey2), balanceInput0, outputAmount, toHex(publicKey3), balanceInput1, outputAmount, toHex(preimage))
+      const preimage = getPreimage(tx_, lockingScript, inputIndex, inputSatoshis, sighashType)
+      const sig = signTx(tx_, privKey, token.getLockingScript(), inputIndex, inputSatoshis, sighashType)
+      return token.split(toHex(sig), toHex(publicKey2), balanceInput0, outputAmount, toHex(publicKey3), balanceInput1, outputAmount, toHex(pkh), changeAmount, toHex(preimage))
     }
 
     expect(testSplit(privateKey1, 60, 40)).to.equal(true);
@@ -115,14 +128,20 @@ describe('Test sCrypt contract UTXO Token In Javascript', () => {
         satoshis: outputAmount
       }))
 
+      // change output
+      tx_.addOutput(new bsv.Transaction.Output({
+        script: bsv.Script.buildPublicKeyHashOut(privateKey1.toAddress()),
+        satoshis: changeAmount
+      }))
+
       const Token = buildContractClass(path.join(__dirname, '../../contracts/tokenUtxo.scrypt'), tx_, inputIndex, inputSatoshis)
       token = new Token()
       
       token.setLockingScript(inputIndex == 0 ? lockingScript0 : lockingScript1)
       
-      const preimage = getPreimage(tx_, inputIndex == 0 ? lockingScript0 : lockingScript1, inputIndex)
-      const sig = signTx(tx_, inputIndex == 0 ? privateKey1 : privateKey2, inputIndex == 0 ? lockingScript0 : lockingScript1, inputIndex)
-      return token.merge(toHex(sig), toHex(publicKey3), inputIndex == 0, inputIndex == 0 ? balance1 : balance0, outputAmount, toHex(preimage))
+      const preimage = getPreimage(tx_, inputIndex == 0 ? lockingScript0 : lockingScript1, inputIndex, inputSatoshis, sighashType)
+      const sig = signTx(tx_, inputIndex == 0 ? privateKey1 : privateKey2, inputIndex == 0 ? lockingScript0 : lockingScript1, inputIndex, inputSatoshis, sighashType)
+      return token.merge(toHex(sig), toHex(publicKey3), inputIndex == 0, inputIndex == 0 ? balance1 : balance0, outputAmount, toHex(pkh), changeAmount, toHex(preimage))
     }
 
     // input0 only checks balance0
