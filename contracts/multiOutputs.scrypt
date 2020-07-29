@@ -1,0 +1,46 @@
+import "util.scrypt";
+
+/**
+* A contract demo for multiple outputs
+*/
+contract MultiOutput {
+    // in satoshis
+    int price;
+    // buyer public key
+    PubKey buyer;
+    // seller address
+    Ripemd160 sellerPKH;
+    // admin address
+    Ripemd160 adminPKH;
+
+	constructor(int price, PubKey buyer, Ripemd160 sellerPKH, Ripemd160 adminPKH) {
+		this.price = price;
+        this.buyer = buyer;
+        this.sellerPKH = sellerPKH;
+        this.adminPKH = adminPKH;
+	}
+
+    public function buy(Sig buyerSig, bytes opreturnScript, bytes txPreimage) {
+        // this ensures the preimage is for the current tx
+        require(Tx.checkPreimage(txPreimage));
+
+        // only specified buyer can purchase
+        require(checkSig(buyerSig, this.buyer));
+
+        // seller payment
+        bytes sellerScript = Util.buildPublicKeyHashScript(this.sellerPKH);
+		bytes sellerOutput = Util.buildOutput(sellerScript, this.price);
+
+        // admin payment/commision: 10%
+        bytes adminScript = Util.buildPublicKeyHashScript(this.adminPKH);
+		bytes adminOutput = Util.buildOutput(adminScript, this.price / 10);
+
+        // OPRETURN
+        bytes opreturnOutput = Util.buildOutput(opreturnScript, 0);
+
+        // other outputs like change ...
+
+        bytes outputs = sellerOutput + adminOutput + opreturnOutput;
+        require(hash256(outputs) == Util.hashOutputs(txPreimage));
+    }
+}
