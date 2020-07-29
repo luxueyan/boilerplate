@@ -4,36 +4,29 @@ import "util.scrypt";
 * A contract demo for multiple outputs
 */
 contract MultiOutput {
-    // in satoshis
-    int price;
-    // buyer public key
-    PubKey buyer;
-    // seller address
-    Ripemd160 sellerPKH;
-    // admin address
-    Ripemd160 adminPKH;
-
-	constructor(int price, PubKey buyer, Ripemd160 sellerPKH, Ripemd160 adminPKH) {
-		this.price = price;
-        this.buyer = buyer;
-        this.sellerPKH = sellerPKH;
-        this.adminPKH = adminPKH;
-	}
-
     public function buy(Sig buyerSig, bytes opreturnScript, bytes txPreimage) {
+        // in satoshis
+        int price = 10000;
+        // buyer public key
+        PubKey buyer = PubKey(b'0200112233445566778899aabbccddeeffffeeddccbbaa99887766554433221100');
+        // seller address
+        Ripemd160 sellerPKH = Ripemd160(b'0011223344556677889999887766554433221100');
+        // admin address
+        Ripemd160 adminPKH = Ripemd160(b'0011223344556677889999887766554433221100');
+
         // this ensures the preimage is for the current tx
         require(Tx.checkPreimage(txPreimage));
 
         // only specified buyer can purchase
-        require(checkSig(buyerSig, this.buyer));
+        require(checkSig(buyerSig, buyer));
 
         // seller payment
-        bytes sellerScript = Util.buildPublicKeyHashScript(this.sellerPKH);
-		bytes sellerOutput = Util.buildOutput(sellerScript, this.price);
+        bytes sellerScript = Util.buildPublicKeyHashScript(sellerPKH);
+		bytes sellerOutput = Util.buildOutput(sellerScript, price);
 
         // admin payment/commision: 10%
-        bytes adminScript = Util.buildPublicKeyHashScript(this.adminPKH);
-		bytes adminOutput = Util.buildOutput(adminScript, this.price / 10);
+        bytes adminScript = Util.buildPublicKeyHashScript(adminPKH);
+		bytes adminOutput = Util.buildOutput(adminScript, price / 10);
 
         // OPRETURN
         bytes opreturnOutput = Util.buildOutput(opreturnScript, 0);
